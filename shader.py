@@ -41,7 +41,15 @@ void main() {
             
         }
     }
-    sum=pow(sum/255,50);
+    sum=sum/255;
+    if(sum<0.795){
+        sum=0.0;
+        }else if(sum<0.8){
+        sum=0.1;
+        }else{
+        sum=1.0;
+        }
+
     f_color = vec4(texture(tex, uvs).rg*(1-sum),texture(tex, uvs).b, 1);
 }
 '''

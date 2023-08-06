@@ -1,4 +1,5 @@
-import pygame, sys, random, moderngl
+import pygame, sys, moderngl, pymunk
+import numpy as np
 from array import array
 from particle import *
 from shader import *
@@ -30,17 +31,36 @@ class Game:
         self.program = self.glcontext.program(vertex_shader=vert_shader, fragment_shader=frag_shader)
         self.render_object = self.glcontext.vertex_array(self.program, [(self.quad_buffer, '2f 2f', 'vert', 'texcoord')])
 
+        self.space = pymunk.Space()
+        self.space.gravity = (0,500)
 
+        self.buff = self.glcontext.buffer(reserve=16000)
+        self.buff.bind_to_uniform_block(0)
+
+        self.create_walls()
+    def create_walls(self):
+        rects = [
+            [(SCREEN_WIDTH/2, SCREEN_HEIGHT - 10), (SCREEN_WIDTH,20)],
+            [(SCREEN_WIDTH/2, 10), (SCREEN_WIDTH,20)],
+            [(SCREEN_WIDTH - 10 , SCREEN_HEIGHT/2), (20,SCREEN_HEIGHT)],
+            [(10, SCREEN_HEIGHT/2), (20,SCREEN_HEIGHT)]
+        ]
+        for pos,size in rects:
+            body = pymunk.Body(body_type=pymunk.Body.STATIC)
+            body.position = pos
+            shape = pymunk.Poly.create_box(body,size)
+            self.space.add(body, shape)
     def run(self):
         self.particles_values=[]
         self.particles_list=[]
-        for i in range(30):
-            p = Particle(random.randint(1,SCREEN_WIDTH), random.randint(1,SCREEN_HEIGHT), random.randint(40,70), SCREEN_WIDTH, SCREEN_HEIGHT)
-            self.particles_list.append(p)
+        #for i in range(220):
+            #p = Particle(SCREEN_WIDTH/2, 30, SCREEN_WIDTH, SCREEN_HEIGHT, self.space)
+            #self.particles_list.append(p)
         running = True
         while running:
             self.handle_events()
             self.update()
+            self.space.step(1/60)
             self.render()
 
             self.clock.tick(FPS)
@@ -52,6 +72,10 @@ class Game:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.quit()
+            if event.type == pygame.MOUSEMOTION:
+                #for i in range(2):
+                    p = Particle(event.pos[0],event.pos[1], SCREEN_WIDTH, SCREEN_HEIGHT, self.space)
+                    self.particles_list.append(p)
 
     def update(self):
         for p in self.particles_list:
@@ -60,13 +84,16 @@ class Game:
 
     def render(self):
         self.display.fill(WHITE)
+        #for p in self.particles_list:
+        #    pygame.draw.circle(self.display,(0,0,0),(p.x,p.y),p.r)
         frame_tex = self.surface_to_texture(self.display)
         frame_tex.use(0)
         self.program['tex'] = 0
         self.program['width'] = SCREEN_WIDTH
         self.program['height'] = SCREEN_HEIGHT
         self.program['list_length'] = len(self.particles_values)
-        self.program['particle_list'] = self.particles_values
+        self.buff.write(self.particles_values.tobytes())
+        #self.program['particle_list'] = self.particles_values
         self.render_object.render(mode=moderngl.TRIANGLE_STRIP)
         
         pygame.display.flip()
@@ -87,9 +114,12 @@ class Game:
     def update_particles_values(pl,a):
         v = []
         for p in (a):
-            v.append((p.x,p.y,p.r))
+            v.append((p.x,p.y,p.r,0))
+        v = np.array(v, dtype=np.float32)
         return v
 
 if __name__ == "__main__":
     game = Game()
     game.run()
+    pygame.quit()
+    sys.exit()

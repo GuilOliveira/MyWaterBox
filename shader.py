@@ -1,5 +1,5 @@
 vert_shader = '''
-#version 400 core
+#version 420 core
 
 in vec2 vert;
 in vec2 texcoord;
@@ -12,44 +12,47 @@ void main() {
 '''
 
 frag_shader = '''
-#version 400 core
+#version 420 core
 
-const int MAX = 1000 ;
+// Bind the UBO to the same binding point as in the Python code
+layout(std140, binding = 0) uniform ParticleData {
+    vec4 pos[1000]; // Use the appropriate size for the array
+} particles;
+
+in vec2 uvs;
+out vec4 f_color;
+
+float sum, xdif, ydif, d, x_to_py, y_to_py, wheight;
 
 uniform sampler2D tex;
 uniform int width;
 uniform int height;
 uniform int list_length;
-uniform vec3 particle_list[MAX];
-
-in vec2 uvs;
-out vec4 f_color;
-
-float sum, xdif, ydif, d, x_to_py, y_to_py;
 
 void main() {
     sum = 0.0;
-    x_to_py = uvs.x*width;
-    y_to_py = uvs.y*height;
-
-    for(int i=0;i<list_length;i++){
-        xdif = x_to_py - particle_list[i].x;
-        ydif = y_to_py - particle_list[i].y;
+    x_to_py = uvs.x * width;
+    y_to_py = uvs.y * height;
+    
+    for (int i = 0; i < list_length; i++) {
+        xdif = x_to_py - particles.pos[i].x;
+        ydif = y_to_py - particles.pos[i].y;
         d = sqrt((xdif * xdif) + (ydif * ydif));
-        if (d!=0){
-            sum += 30*particle_list[i].z/d;
-            
+        if (d != 0) {
+            wheight = 160 * particles.pos[i].z;
+            sum += wheight * particles.pos[i].z / (d * d);
         }
     }
-    sum=sum/255;
-    if(sum<0.795){
-        sum=0.0;
-        }else if(sum<0.8){
-        sum=0.1;
-        }else{
-        sum=1.0;
-        }
-
-    f_color = vec4(texture(tex, uvs).rg*(1-sum),texture(tex, uvs).b, 1);
+    sum = sum / 255;
+    if (sum < 0.825) {
+        sum = 0.0;
+    } else if (sum < 0.85) {
+        sum = 0.1;
+    } else {
+        sum = 1.0;
+    }
+    
+    f_color = vec4(texture(tex, uvs).rg * (1 - sum), texture(tex, uvs).b, 1);
 }
+
 '''

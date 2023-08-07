@@ -30,6 +30,9 @@ uniform int height;
 uniform int list_length;
 
 void main() {
+    if(texture(tex, uvs).rgb!=vec3(1,1,1)){
+        f_color = vec4(texture(tex, uvs).rgb, 1);
+    }else{
     sum = 0.0;
     x_to_py = uvs.x * width;
     y_to_py = uvs.y * height;
@@ -39,20 +42,23 @@ void main() {
         ydif = y_to_py - particles.pos[i].y;
         d = sqrt((xdif * xdif) + (ydif * ydif));
         if (d != 0) {
-            wheight = 160 * particles.pos[i].z;
+            wheight = 180 * particles.pos[i].z;
             sum += wheight * particles.pos[i].z / (d * d);
         }
     }
     sum = sum / 255;
-    if (sum < 0.825) {
+    if (sum < 0.8) {
         sum = 0.0;
+        f_color = vec4(texture(tex, uvs).rgb, 1);
     } else if (sum < 0.85) {
         sum = 0.1;
+        f_color = vec4(0,0,0, 1);
     } else {
         sum = 1.0;
+        f_color = vec4(0.6,0.6, texture(tex, uvs).b, 1);
+    }
     }
     
-    f_color = vec4(texture(tex, uvs).rg * (1 - sum), texture(tex, uvs).b, 1);
 }
 
 '''

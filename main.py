@@ -1,10 +1,12 @@
 import pygame, sys, moderngl, pymunk
+import glcontext
 import numpy as np
 from array import array
 from particle import *
 from shader import *
 from playground import *
 from linetracer import *
+from level_loader import *
 
 SCREEN_WIDTH = 1024
 SCREEN_HEIGHT = 576
@@ -21,7 +23,7 @@ class Game:
         pygame.init()
         self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.OPENGL | pygame.DOUBLEBUF)
         self.display = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
-        pygame.display.set_caption("Project W")
+        pygame.display.set_caption("AstroAqua")
         self.clock = pygame.time.Clock()
         # opengl
 
@@ -38,48 +40,9 @@ class Game:
 
         self.buff = self.glcontext.buffer(reserve=16000)
         self.buff.bind_to_uniform_block(0)
-        # ohter things
 
-        self.space = pymunk.Space()
-
-        self.space.gravity = (0,500)
-        self.particles_values=[]
-        self.particles_list=[]
-
-        self.playground = Playground(self.space)
-        self.dt = 0
-        self.total_time = 0
-        self.lines = []
-        self.actual_line = 0
-        self.background = pygame.image.load('./data/back.png')
-
-        self.create_walls()
-    
-    def render_grid(self):
-        rows = 7
-        cols = 17
-        cell_width = int(PLAYGROUND_WIDTH/cols)
-        cell_height = int(PLAYGROUND_HEIGHT/rows)
-        grid_color = (0, 255, 0)
-
-        for y in range(15, PLAYGROUND_WIDTH+15, cell_height):
-            pygame.draw.line(self.display, grid_color, (y, 29), (y, PLAYGROUND_HEIGHT+6))
-            for x in range(29, PLAYGROUND_HEIGHT+29, cell_width):
-                pygame.draw.line(self.display, grid_color, (15, x), (PLAYGROUND_WIDTH+3, x))
-
-    def create_walls(self):
-        rects = [
-            [(SCREEN_WIDTH/2, SCREEN_HEIGHT - 65), (SCREEN_WIDTH,130)],
-            [(SCREEN_WIDTH/2, 0), (SCREEN_WIDTH,20)],
-            [(SCREEN_WIDTH, SCREEN_HEIGHT/2), (20,SCREEN_HEIGHT)],
-            [(0, SCREEN_HEIGHT/2), (20,SCREEN_HEIGHT)]
-        ]
-        for pos,size in rects:
-            body = pymunk.Body(body_type=pymunk.Body.STATIC)
-            body.position = pos
-            shape = pymunk.Poly.create_box(body,size)
-            self.space.add(body, shape)
     def run(self):
+        self.setup_environment()
         running = True
         while running:
             self.handle_events()
@@ -92,6 +55,28 @@ class Game:
 
         pygame.quit()
         sys.exit()
+
+    def setup_environment(self):
+        self.space = pymunk.Space()
+
+        self.space.gravity = (0,500)
+        self.particles_values=[]
+        self.particles_list=[]
+
+        self.playground = Playground(self.space)
+        self.dt = 0
+        self.total_time = 0
+        self.lines = []
+        self.actual_line = 0
+        self.background_tex = pygame.image.load('./data/back.png')
+        self.green_pipe_tex = pygame.transform.rotate(pygame.image.load('./data/green_pipe.png'), 90)
+        self.blue_pipe_tex = pygame.transform.rotate(pygame.image.load('./data/blue_pipe.png'), 90)
+        self.black_pipe_tex = pygame.transform.rotate(pygame.image.load('./data/black_pipe.png'), 90)
+
+        self.pipes_tex = [self.green_pipe_tex,self.blue_pipe_tex,self.black_pipe_tex,]
+
+        self.lvl = Level_loader(self.display, 10, 10, PLAYGROUND_WIDTH, PLAYGROUND_HEIGHT, 17, 7, self.pipes_tex)
+        self.create_walls()
 
     def handle_events(self):
         for event in pygame.event.get():
@@ -113,6 +98,45 @@ class Game:
             if keys[pygame.K_r]:
                 self.reset()
 
+    def update(self):
+        self.playground.update(self.total_time)
+        for p in self.particles_list:
+            p.update()
+        if self.actual_line:
+            self.actual_line.update(self.get_mouse_playground()[0], self.get_mouse_playground()[1])
+        self.particles_values = self.update_particles_values(self.particles_list)
+
+    def render(self):
+        self.display.fill(WHITE)
+        self.display.blit(self.background_tex, (0, 0))
+        if self.actual_line:
+            for i in range(1, len(self.actual_line.points)):
+                pygame.draw.line(self.display, (60, 60, 60), self.actual_line.points[i-1], self.actual_line.points[i], 6)
+        for l in self.lines:
+            for i in l.body.shapes:
+                if isinstance(i, pymunk.Segment):
+                    a = l.body.local_to_world(i.a)
+                    b = l.body.local_to_world(i.b)
+                    pygame.draw.line(self.display, (0, 0, 0), a, b, 6)
+        self.lvl.render_level()
+        frame_tex = self.surface_to_texture(self.display)
+        frame_tex.use(0)
+        self.program['tex'] = 0
+        self.program['width'] = SCREEN_WIDTH
+        self.program['height'] = SCREEN_HEIGHT
+        self.program['list_length'] = len(self.particles_values)
+        self.buff.write(self.particles_values.tobytes())
+        self.render_object.render(mode=moderngl.TRIANGLE_STRIP)
+
+        pygame.display.flip()
+        
+        frame_tex.release()
+
+    def quit(self):
+        pygame.quit()
+        sys.exit()
+
+    
     def get_mouse_playground(self):
         mouse=pygame.mouse.get_pos()
         
@@ -131,43 +155,20 @@ class Game:
 
         return (x, y)
 
-    def update(self):
-        self.playground.update(self.total_time)
-        for p in self.particles_list:
-            p.update()
-        if self.actual_line:
-            self.actual_line.update(self.get_mouse_playground()[0], self.get_mouse_playground()[1])
-        self.particles_values = self.update_particles_values(self.particles_list)
-
-    def render(self):
-        self.display.fill(WHITE)
-        self.display.blit(self.background, (0, 0))
-        self.render_grid()
-        if self.actual_line:
-            for i in range(1, len(self.actual_line.points)):
-                pygame.draw.line(self.display, (60, 60, 60), self.actual_line.points[i-1], self.actual_line.points[i], 6)
-        for l in self.lines:
-            for i in l.body.shapes:
-                if isinstance(i, pymunk.Segment):
-                    a = l.body.local_to_world(i.a)
-                    b = l.body.local_to_world(i.b)
-                    pygame.draw.line(self.display, (0, 0, 0), a, b, 6)
-        frame_tex = self.surface_to_texture(self.display)
-        frame_tex.use(0)
-        self.program['tex'] = 0
-        self.program['width'] = SCREEN_WIDTH
-        self.program['height'] = SCREEN_HEIGHT
-        self.program['list_length'] = len(self.particles_values)
-        self.buff.write(self.particles_values.tobytes())
-        self.render_object.render(mode=moderngl.TRIANGLE_STRIP)
-        
-        pygame.display.flip()
-        
-        frame_tex.release()
-
-    def quit(self):
-        pygame.quit()
-        sys.exit()
+    def create_walls(self):
+        rects = [
+            [(SCREEN_WIDTH/2, SCREEN_HEIGHT - 65), (SCREEN_WIDTH,130)],
+            [(SCREEN_WIDTH/2, 0), (SCREEN_WIDTH,20)],
+            [(SCREEN_WIDTH, SCREEN_HEIGHT/2), (20,SCREEN_HEIGHT)],
+            [(0, SCREEN_HEIGHT/2), (20,SCREEN_HEIGHT)]
+        ]
+        for pos,size in rects:
+            body = pymunk.Body(body_type=pymunk.Body.STATIC)
+            body.position = pos
+            shape = pymunk.Poly.create_box(body,size)
+            shape.elasticity = 0.5
+            shape.friction = 0.8
+            self.space.add(body, shape)
 
     def surface_to_texture(self, surf):
         tex = self.glcontext.texture(surf.get_size(), 4)

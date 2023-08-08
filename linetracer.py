@@ -16,7 +16,7 @@ class Linetracer():
             shape = pymunk.Segment(self.body, self.points[-1], (x,y),3)
             shape.mass = 40
             shape.elasticity = 0.5
-            shape.friction = 0.2
+            shape.friction = 0.6
             shape.density = 80
             
             self.segments.append(shape)

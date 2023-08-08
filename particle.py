@@ -1,15 +1,13 @@
 import random, pymunk
 
 class Particle:
-    def __init__(self, x, y, w, h, space):
+    def __init__(self, x, y, space):
         self.x = x
         self.y = y
-        self.pos = (x, y)  # Store the position as a tuple
-        self.w = w
-        self.h = h
-        self.r = 4
+        self.pos = (x, y)  
+        self.r = 6
 
-        self.body = pymunk.Body(20, 80, body_type=pymunk.Body.DYNAMIC)
+        self.body = pymunk.Body(20, 0.1, body_type=pymunk.Body.DYNAMIC)
         self.body.position = (self.x, self.y)
         shape = pymunk.Circle(self.body, self.r)
         shape.mass = 40

@@ -109,6 +109,9 @@ class Game:
                 self.actual_line.end_line(self.get_mouse_playground()[0],self.get_mouse_playground()[1])
                 self.lines.append(self.actual_line)
                 self.actual_line = 0
+            keys = pygame.key.get_pressed()
+            if keys[pygame.K_r]:
+                self.reset()
 
     def get_mouse_playground(self):
         mouse=pygame.mouse.get_pos()
@@ -172,6 +175,15 @@ class Game:
         tex.swizzle = 'BGRA'
         tex.write(surf.get_view('1'))
         return tex
+    
+    def reset(self):
+        self.particles_list=[]
+        self.lines=[]
+        for shape in self.space.shapes[:]:
+            self.space.remove(shape)
+        for body in self.space.bodies[:]:
+            self.space.remove(body)
+        self.create_walls()
     
     def update_particles_values(pl,a):
         v = []

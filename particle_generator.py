@@ -1,7 +1,7 @@
 from particle import *
 import random
 
-class Playground():
+class Particle_generator():
     def __init__(self, space):
         self.particles_remaining=0
         self.space = space
@@ -25,7 +25,7 @@ class Playground():
                     int(spread/2)), self.space))
 
     def update(self ,time):
-        if time>=self.last_time and self.particles_remaining>0:
+        if time>=self.last_time+self.p_freq and self.particles_remaining>0:
             self.last_time = time
             self.particle_spawner(self.particle_list, self.particles_remaining, 
                                   self.x_p_spawner, self.y_p_spawner, self.p_spread, self.p_freq)

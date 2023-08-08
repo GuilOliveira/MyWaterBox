@@ -4,7 +4,7 @@ import numpy as np
 from array import array
 from particle import *
 from shader import *
-from playground import *
+from particle_generator import *
 from linetracer import *
 from level_loader import *
 
@@ -63,7 +63,8 @@ class Game:
         self.particles_values=[]
         self.particles_list=[]
 
-        self.playground = Playground(self.space)
+        self.generators = []
+        self.generated_particles = False
         self.dt = 0
         self.total_time = 0
         self.lines = []
@@ -74,6 +75,8 @@ class Game:
         self.black_pipe_tex = pygame.transform.rotate(pygame.image.load('./data/black_pipe.png'), 90)
 
         self.pipes_tex = [self.green_pipe_tex,self.blue_pipe_tex,self.black_pipe_tex,]
+        self.collision_handler = self.space.add_collision_handler(1, 2)
+        self.collision_handler.begin = self.begin_collision
 
         self.lvl = Level_loader(self.display, 10, 10, PLAYGROUND_WIDTH, PLAYGROUND_HEIGHT, 17, 7, self.pipes_tex)
         self.create_walls()
@@ -84,10 +87,11 @@ class Game:
             if event.type == pygame.QUIT:
                 self.quit()
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 3:
-                self.playground.particle_spawner(self.particles_list, 40, 70,70,3,200)
+                self.particles_handler()
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 2:
                 a = self.space.gravity[1]
                 self.space.gravity = (0, a*(-1))
+                
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 self.actual_line = Linetracer(self.get_mouse_playground()[0],self.get_mouse_playground()[1], self.space)
             if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
@@ -99,7 +103,8 @@ class Game:
                 self.reset()
 
     def update(self):
-        self.playground.update(self.total_time)
+        for g in self.generators:
+            g.update(self.total_time)
         for p in self.particles_list:
             p.update()
         if self.actual_line:
@@ -136,6 +141,29 @@ class Game:
         pygame.quit()
         sys.exit()
 
+    def new_level(self):
+        self.reset()
+
+
+    def particles_handler(self):
+        if self.generated_particles:
+            return
+        self.generated_particles = True
+        green, fds, fds2, fds3=self.lvl.get_pipes()
+        data = self.lvl.get_level_data()
+        for i in green:
+            g = Particle_generator(self.space)
+            g.particle_spawner(self.particles_list,data["Max_Particles"], i[0]+29, i[1]+24, 2, 45)
+            self.generators.append(g)
+
+    def begin_collision(arbiter, space, data):
+        if arbiter.shapes[0].collision_type == 1:
+            if isinstance(arbiter.shapes[1], pymunk.Circle):
+                print("+1")
+        elif arbiter.shapes[0].collision_type == 2:
+            if isinstance(arbiter.shapes[1], pymunk.Circle):
+                print("Punished!")
+            
     
     def get_mouse_playground(self):
         mouse=pygame.mouse.get_pos()
@@ -167,7 +195,7 @@ class Game:
             body.position = pos
             shape = pymunk.Poly.create_box(body,size)
             shape.elasticity = 0.5
-            shape.friction = 0.8
+            shape.friction = 0.7
             self.space.add(body, shape)
 
     def surface_to_texture(self, surf):
@@ -185,6 +213,7 @@ class Game:
         for body in self.space.bodies[:]:
             self.space.remove(body)
         self.create_walls()
+        self.generated_particles = False
     
     def update_particles_values(pl,a):
         v = []

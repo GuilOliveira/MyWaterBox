@@ -23,7 +23,7 @@ class Game:
         pygame.init()
         self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.OPENGL | pygame.DOUBLEBUF)
         self.display = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
-        pygame.display.set_caption("AstroAqua")
+        pygame.display.set_caption("My WaterBox!")
         self.clock = pygame.time.Clock()
         # opengl
 
@@ -38,8 +38,9 @@ class Game:
         self.program = self.glcontext.program(vertex_shader=vert_shader, fragment_shader=frag_shader)
         self.render_object = self.glcontext.vertex_array(self.program, [(self.quad_buffer, '2f 2f', 'vert', 'texcoord')])
 
-        self.buff = self.glcontext.buffer(reserve=16000)
+        self.buff = self.glcontext.buffer(reserve=64000)
         self.buff.bind_to_uniform_block(0)
+        self.is_water = False
 
     def run(self):
         self.setup_environment()
@@ -87,7 +88,9 @@ class Game:
             if event.type == pygame.QUIT:
                 self.quit()
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 3:
-                self.particles_handler()
+                self.is_water=True
+            if event.type == pygame.MOUSEBUTTONUP and event.button == 3:
+                self.is_water=False
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 2:
                 a = self.space.gravity[1]
                 self.space.gravity = (0, a*(-1))
@@ -103,6 +106,8 @@ class Game:
                 self.reset()
 
     def update(self):
+        if self.is_water:
+            self.particles_list.append(Particle(self.get_mouse_playground()[0],self.get_mouse_playground()[1],self.space))
         for g in self.generators:
             g.update(self.total_time)
         for p in self.particles_list:
